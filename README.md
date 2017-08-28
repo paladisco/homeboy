@@ -27,11 +27,7 @@ cd homeboy
 composer install
 ```
 
-Run the setup command to generate a .env file
-
-```
-php homeboy setup
-```
+- Copy one of the .env.example files to a new file called `.env` and update it with your information
 
 **By this point, you should be able to run homeboy within the directory using the command:**
 
@@ -55,23 +51,6 @@ homeboy=php C:\Users\[USER]\homeboy\homeboy $*
 
 *be sure to edit the path based on where homeboy is installed*
 
-
-### Using Composer
-
-*Warning, this feature is currently in development*
-
-Install Homeboy using Composer:
-
-```
-composer global require "kilroyweb/homeboy" dev-master
-```
-
-Make sure to place the $HOME/.composer/vendor/bin directory (or the equivalent directory for your OS) 
-in your $PATH so the laravel executable can be located by your system.
-
-Once installed, you can use ``homeboy`` command from anywhere on your system.
-
-
 ### Use Homeboy to host a new homestead site
 
 ```
@@ -81,6 +60,8 @@ homeboy
 Running this command automates the task of creating a new composer project, updating your hosts file and vagrant files when provisioning a new website
 
 When the command runs, it prompts for the sites directory name, database name, and dev url to update the needed files and then provisions vagrant
+
+Note: To enable composer project creation, be sure to add "USE_COMPOSER=true" to your .env file
 
 ### Options
 

@@ -3,7 +3,6 @@
 namespace App\Commands;
 
 use App\Configuration\Config;
-use App\Support\Traits\RequireEnvFile;
 use App\Support\Vagrant\Vagrant as VagrantSupport;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -12,8 +11,6 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 class Vagrant extends Command
 {
-
-    use RequireEnvFile;
 
     private $inputInterface;
     private $outputInterface;
@@ -35,7 +32,6 @@ class Vagrant extends Command
     private function init(InputInterface $input, OutputInterface $output){
         $this->inputInterface = $input;
         $this->outputInterface = $output;
-        $this->hasEnvFile();
         $this->config = new Config();
         $vagrantAccessDirectoryCommand = 'cd '.$this->config->getHomesteadBoxPath();
         if(!empty($this->config->getHomesteadAccessDirectoryCommand())){

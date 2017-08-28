@@ -6,7 +6,6 @@ use App\Configuration\Config;
 use App\FileManagers\HomesteadFileManager;
 use App\FileManagers\HostsFileManager;
 use App\Input\Interrogator;
-use App\Support\Traits\RequireEnvFile;
 use App\Support\Vagrant\Vagrant;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -15,8 +14,6 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 class Host extends Command
 {
-
-    use RequireEnvFile;
 
     private $questionHelper;
     private $inputInterface;
@@ -32,6 +29,7 @@ class Host extends Command
     private $domain;
     private $useDefaults=false;
     private $skipConfirmation=false;
+	private $noCreate=false;
 
     private $interrogator;
 
@@ -49,7 +47,6 @@ class Host extends Command
     private function init(InputInterface $input, OutputInterface $output){
         $this->inputInterface = $input;
         $this->outputInterface = $output;
-        $this->hasEnvFile();
         $this->questionHelper = $this->getHelper('question');
         $this->interrogator = new Interrogator($input, $output, $this->getHelper('question'));
         $this->config = new Config();
@@ -85,7 +82,7 @@ class Host extends Command
             null,
             InputOption::VALUE_REQUIRED,
             'Database',
-            null
+            'homestead'
         );
         $this->addOption(
             'domain',
@@ -93,6 +90,12 @@ class Host extends Command
             InputOption::VALUE_REQUIRED,
             'Development Domain',
             null
+        );
+        $this->addOption(
+            'no-create',
+            null,
+            InputOption::VALUE_NONE,
+            'Do not create project, use existing repo'
         );
     }
 
@@ -125,6 +128,9 @@ class Host extends Command
         if($this->inputInterface->getOption('skip-confirmation')){
             $this->skipConfirmation = boolval($this->inputInterface->getOption('skip-confirmation'));
         }
+        if($this->inputInterface->getOption('no-create')){
+            $this->noCreate = boolval($this->inputInterface->getOption('no-create'));
+        }
         if($this->inputInterface->getOption('name')){
             $this->name = $this->inputInterface->getOption('name');
         }
@@ -151,24 +157,16 @@ class Host extends Command
             }
 
             if ($this->config->getUseComposer()) {
-                $this->composerProject = $this->interrogator->ask(
-                    'What composer project?',
-                    $this->config->getComposerProject()
-                );
+                $this->composerProject = $this->config->getComposerProject();
             }
 
-            $this->folder = $this->interrogator->ask(
-                'What local directory will store your project?',
-                $this->config->getFolder()
-            );
+            $this->folder = $this->config->getFolder();
 
             if ($this->composerProject != 'laravel/laravel') {
                 $this->folderSuffix = $this->interrogator->ask(
                     'Point site to?',
                     $this->config->getFolderSuffix()
                 );
-            }else{
-                $this->folderSuffix = $this->config->getFolderSuffix();
             }
 
             if(!$this->inputInterface->getOption('database')) {
@@ -179,13 +177,7 @@ class Host extends Command
                 );
             }
 
-            if(!$this->inputInterface->getOption('domain')) {
-                $this->domain = $this->defaultDomainNameFromKey($this->name);
-                $this->domain = $this->interrogator->ask(
-                    'Development Domain?',
-                    $this->domain
-                );
-            }
+            $this->domain = $this->defaultDomainNameFromKey($this->name);
 
         }
     }
@@ -193,7 +185,7 @@ class Host extends Command
     private function getTaskConfirmationFromQuestion(){
         $this->outputInterface->writeln('<info>The following tasks will be executed:</info>');
         if($this->config->getUseComposer() && !empty($this->composerProject)){
-            $this->outputInterface->writeln("- Run Command: cd {$this->folder} && composer create-project {$this->composerProject} {$this->name}");
+            $this->outputInterface->writeln("- Run Command: cd {$this->folder} && git clone {$this->composerProject} {$this->name}");
         }
         $this->outputInterface->writeln('- ('.$this->config->getHostsPath().') add line: '.$this->config->getHostIP().' '.$this->domain);
         $this->outputInterface->writeln('- ('.$this->config->getHomesteadPath().') map : '.$this->domain.' to '.$this->config->getHomesteadSitesPath().$this->name.$this->folderSuffix);
@@ -201,21 +193,23 @@ class Host extends Command
         if(!empty($this->homesteadProvisionCommand)){
             $this->outputInterface->writeln('- Run Command: '.$this->homesteadProvisionCommand);
         }else{
-            $this->outputInterface->writeln('- Run Command: cd '.$this->config->getHomesteadBoxPath().' && vagrant provision');
+            $this->outputInterface->writeln('- Run Command: homesteadp');
         }
 
-        $response = $this->interrogator->ask(
-            'Run tasks?',
-            'Y'
-        );
-        if(strtoupper($response) == 'Y'){
-            return true;
-        }
-        return false;
+        // $response = $this->interrogator->ask(
+        //     'Run tasks?',
+        //     'Y'
+        // );
+        // if(strtoupper($response) == 'Y'){
+        //     return true;
+        // }
+        // return false;
+
+        return true;
     }
 
     private function runTasks(){
-        if($this->config->getUseComposer() && !empty($this->composerProject)){
+        if(!$this->noCreate){
             $this->outputInterface->writeln('<info>Creating project...</info>');
             $this->createProject();
         }
@@ -232,8 +226,7 @@ class Host extends Command
         $this->outputInterface->writeln('<info>Provisioning Vagrant...</info>');
         $this->provisionHomestead();
 
-        $this->outputInterface->writeln('');
-        $this->outputInterface->writeln('<info>Complete! Visit: http://'.$this->domain.'</info>');
+        $this->outputInterface->writeln('<success>Complete! Visit: http://'.$this->domain.'</success>');
     }
 
     private function defaultDatabaseNameFromKey($key){
@@ -253,16 +246,20 @@ class Host extends Command
 
     private function createProject()
     {
-        if(!empty($this->config->getAccessLocalSitesDirectoryCommand())){
-            $shellOutput = shell_exec($this->config->getAccessLocalSitesDirectoryCommand()." && composer create-project {$this->composerProject} {$this->name}");
-        }else{
-            $shellOutput = shell_exec("cd {$this->folder} && composer create-project {$this->composerProject} {$this->name}");
-        }
+        $key = strtolower($this->name);
+        $key = preg_replace("/[^A-Za-z0-9]/", '', $key);
+        $shellOutput = shell_exec("cd {$this->folder} && sudo -H -u " . $this->config->user . " git clone {$this->composerProject} {$this->name} && cp {$this->folder}{$this->name}/.env.sample {$this->folder}{$this->name}/.env");
+        file_put_contents($this->folder . $this->name . '/.env', implode('', 
+          array_map(function($data) use ($key){
+            return stristr($data,'DB_DATABASE=rflyte') ? "DB_DATABASE=$key'\n" : $data;
+          }, file($this->folder . $this->name . '/.env'))
+        ));
     }
 
     private function updateHostsFile(){
-        $fileManager = new HostsFileManager($this->config->getHostsPath());
-        $fileManager->appendLine($this->config->getHostIP().' '.$this->domain);
+        shell_exec('sudo -- sh -c "echo ' . $this->config->getHostIP() . ' ' . $this->domain . ' >> /etc/hosts"');
+        // $fileManager = new HostsFileManager($this->config->getHostsPath());
+        // $fileManager->appendLine($this->config->getHostIP().' '.$this->domain);
     }
 
     private function updateHomesteadSites(){
@@ -271,8 +268,9 @@ class Host extends Command
     }
 
     private function updateHomesteadDatabases(){
-        $fileManager = new HomesteadFileManager($this->config->getHomesteadPath());
-        $fileManager->addDatabase($this->database);
+        shell_exec('vagrant ssh -- -t "mysql -u homestead -e \'CREATE DATABASE ' . $this->database . ';\'"');
+        //$fileManager = new HomesteadFileManager($this->config->getHomesteadPath());
+        //$fileManager->addDatabase($this->database);
     }
 
     private function provisionHomestead(){

@@ -15,7 +15,7 @@ class Config{
     private $homesteadSitesPath;
     private $homesteadBoxPath;
     private $homesteadAccessDirectoryCommand;
-    private $accessLocalSitesDirectoryCommand;
+    public $user;
 
     public function __construct()
     {
@@ -23,22 +23,18 @@ class Config{
     }
 
     private function updateFromEnvironment(){
-        $this->folder = getenv('LOCAL_SITES_PATH');
+        $this->user = preg_replace("/[^A-Za-z0-9\-]/", '', shell_exec('whoami'));
+        $this->folder = '/Users/' . $this->user . '/' . getenv('LOCAL_SITES_PATH');
         $this->folderSuffix = getenv('DEFAULT_FOLDER_SUFFIX');
         $this->useComposer = boolval(getenv('USE_COMPOSER'));
         $this->composerProject = getenv('DEFAULT_COMPOSER_PROJECT');
         $this->hostsPath = getenv('HOSTS_FILE_PATH');
         $this->hostIP = getenv('HOMESTEAD_HOST_IP');
-        $this->homesteadPath = getenv('HOMESTEAD_FILE_PATH');
+        $this->homesteadPath = '/Users/' . $this->user . '/' . getenv('HOMESTEAD_FILE_PATH');
         $this->homesteadSitesPath = getenv('HOMESTEAD_SITES_PATH');
-        $this->homesteadBoxPath = getenv('HOMESTEAD_BOX_PATH');
+        $this->homesteadBoxPath = '/Users/' . $this->user . '/' . getenv('HOMESTEAD_BOX_PATH');
         $this->homesteadAccessDirectoryCommand = getenv('HOMESTEAD_ACCESS_DIRECTORY_COMMAND');
         $this->domainExtension = getenv('DEFAULT_DOMAIN_EXTENSION');
-        $this->accessLocalSitesDirectoryCommand = getenv('ACCESS_LOCAL_SITES_DIRECTORY_COMMAND');
-    }
-
-    public static function hasEnvFile(){
-        return file_exists(basePath('.env'));
     }
 
     public function getFolder(){
@@ -83,10 +79,6 @@ class Config{
 
     public function getDomainExtension(){
         return $this->domainExtension;
-    }
-
-    public function getAccessLocalSitesDirectoryCommand(){
-        return $this->accessLocalSitesDirectoryCommand;
     }
 
 }

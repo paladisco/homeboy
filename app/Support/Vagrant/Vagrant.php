@@ -16,11 +16,11 @@ class Vagrant{
     }
 
     public function provision(){
-        return $this->runAction('provision');
+        return $this->runAction();
     }
 
-    public function runAction($action){
-        return shell_exec($this->accessDirectoryCommand.' && vagrant '.$action);
+    public function runAction(){
+        return shell_exec('');
     }
 
 }
